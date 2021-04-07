@@ -7,6 +7,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import StandardScaler, OrdinalEncoder
 from sklearn.utils import resample
+from sklearn.pipeline import Pipeline
 
 
 def split_data():
@@ -40,21 +41,24 @@ def transform_data(train=False, test=False):
     stroke_features = raw_data.drop(['id', 'bmi', 'stroke'], axis=1)
     stroke_labels = raw_data['stroke'].copy()
 
-    numerical = stroke_features.select_dtypes(exclude='O')
     categorical = stroke_features.select_dtypes(include='O')
 
     if train:
-        pipeline = ColumnTransformer([
-            ('scaler', StandardScaler(), list(numerical)),
+        encoder = ColumnTransformer([
             ('encoder', OrdinalEncoder(), list(categorical)),
+        ], remainder='passthrough')
+
+        full_pipeline = Pipeline([
+            ('cat_encoder', encoder),
+            ('scaler', StandardScaler())
         ])
 
-        stroke_features = pipeline.fit_transform(stroke_features)
-        joblib.dump(pipeline, os.path.join(settings.MODELS_DIR, 'pipeline.pkl'))
+        stroke_features = full_pipeline.fit_transform(stroke_features)
+        joblib.dump(full_pipeline, os.path.join(settings.MODELS_DIR, 'pipeline.pkl'))
 
     if test:
-        pipeline = joblib.load(os.path.join(settings.MODELS_DIR, 'pipeline.pkl'))
-        stroke_features = pipeline.transform(stroke_features)
+        full_pipeline = joblib.load(os.path.join(settings.MODELS_DIR, 'pipeline.pkl'))
+        stroke_features = full_pipeline.transform(stroke_features)
 
     if not os.path.exists(settings.TRF_DATA_DIR):
         os.mkdir(settings.TRF_DATA_DIR)
